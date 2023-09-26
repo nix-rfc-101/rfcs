@@ -136,8 +136,10 @@ it is pretty clear that nixfmt is the easiest one to modify and to maintain.
 
 The RFC consist of three main parts, see the following sections for more information:
 
-- Define the _standard Nix format_ in sufficient detail
-- Establish the _Nix format team_ with the authority and responsibility to implement and maintain the standard Nix format
+- Define the initial _standard Nix format_
+- Establish the _Nix format team_
+- Create the _official Nix formatter_ implementation
+- Reformat Nixpkgs with the official Nix formatter
 - Specify that any default formatting in the Nix CLI must use the official Nix formatter
 
 ### Standard Nix format
@@ -161,13 +163,11 @@ A new team is created, initially consisting of:
 
 Team member updates are left for the team itself to decide.
 
-This team is given certain authority and responsibilities:
+### Official Nix formatter
 
-#### Official Nix formatter
-
-Create and maintain the _official Nix formatter_ implementation.
+The Nix format team is given the authority and responsibility of
+creating and maintaining the _official Nix formatter_ implementation.
 This is a repository in the NixOS GitHub organisation.
-The team must have commit access to this repository.
 The repository will initially be based on [this nixfmt pull request](https://github.com/serokell/nixfmt/pull/118).
 
 Any release of the official Nix formatter must conform to the latest version of the [standard Nix format](#standard-nix-format).
@@ -178,22 +178,22 @@ The formatter team should be consulted before the Nix language syntax is changed
 For changes that maintain conformity to the standard Nix format,
 the team has the authority to accept or reject them.
 
-#### Reformat Nixpkgs
+### Reformat Nixpkgs
 
 For every release of the official Nix formatter,
-the team has the authority to reformat Nixpkgs using the new version.
+the Nix format team has the authority to reformat Nixpkgs using the new version.
 
-In order to not clutter the history, formatting will be done with a single commit.
-This commit will be added to `.git-blame-ignore-revs`,
-so it [won't get shown](https://docs.github.com/en/repositories/working-with-files/using-files/viewing-a-file#ignore-commits-in-the-blame-view) in git blame's on GitHub,
+In order to not clutter the history, formatting must be done with a single commit.
+This commit must be added to `.git-blame-ignore-revs`,
+so it [won't get shown](https://docs.github.com/en/repositories/working-with-files/using-files/viewing-a-file#ignore-commits-in-the-blame-view) in blames on GitHub,
 and can be ignored in the `git blame` command using [`--ignore-revs-file`](https://www.git-scm.com/docs/git-blame#Documentation/git-blame.txt---ignore-revs-fileltfilegt).
 
 CI must enforce the same formatting on every pull request.
 A pinned version of the formatter, independent of the one provided by Nixpkgs itself, must be used for CI.
 
-##### Releases and branches
+#### Releases and branches
 
-TODO: This section
+TODO: This section feels a bit too detailed and unnecessary
 
 This must be done in coordination with the NixOS release managers.
 In order to minimize conflicts, the format used for Nixpkgs may only be updated shortly before release branch-off, at which point old pull requests will need to be rebased.
