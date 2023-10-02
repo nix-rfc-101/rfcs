@@ -8,7 +8,9 @@ shepherd-leader:
 related-issues: https://github.com/serokell/nixfmt/pull/118
 ---
 
-# Summary
+# Nix formatting
+
+## Summary
 
 [summary]: #summary
 
@@ -42,8 +44,6 @@ Non-goals of this RFC:
 - Applying the format to other repositories within the NixOS organization containing Nix code. It is up to their respective maintainers to make the transition.
 
 ## Goals and approach
-
-### Detailed Format
 
 There are several goals that the formatting style should match.
 These are inherently at conflict with each other, requiring priorisation and making trade-offs.
