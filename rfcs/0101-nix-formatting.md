@@ -41,24 +41,9 @@ Non-goals of this RFC:
 - Formatting non-Nix files in Nixpkgs
 - Applying the format to other repositories within the NixOS organization containing Nix code. It is up to their respective maintainers to make the transition.
 
-## Detailed design
-[design]: #detailed-design
+## Goals and approach
 
-TODO rewrite that header:
-
-There are four main parts to this RFC:
-- Establish basic formatting guidelines
-- Pick a formatter implementation
-- Migrate Nixpkgs to the format and enforce it in CI
-- Create a process for future maintenance of the implementation
-
-### Terms and definitions
-
-- Brackets: `[]`
-- Braces: `{}`
-- Parentheses: `()`
-
-### Formatting style goals and approach taken
+### Detailed Format
 
 There are several goals that the formatting style should match.
 These are inherently at conflict with each other, requiring priorisation and making trade-offs.
@@ -85,6 +70,9 @@ The test suite of the formatter implementation specifies the exact formatting, i
 
 TODO move part of this out into a section which describes the future of the format (see also the team), and where it is documented.
 
+- When deciding between two *equally good* options, currently prevalent formatting style in Nixpkgs should be followed.
+  - The emphasis here is on "equally good". We should not fear of making radical changes to the current style if there are sufficient arguments in favor of it.
+- *Bad code does not deserve good formatting.*
 
 ### Formatter tooling
 
@@ -143,17 +131,73 @@ and because its output was pretty opinionated towards extreme code compactness.
 But after actually trying all of them out (from a developer perspective),
 it is pretty clear that nixfmt is the easiest one to modify and to maintain.
 
-### Formatting Nixpkgs
+## Detailed design
+[design]: #detailed-design
 
-Once the tooling fully conforms to the style guide, Nixpkgs will be fully reformatted. The output of the chosen formatter will be authoritative for Nixpkgs.
+The RFC consist of three main parts, see the following sections for more information:
 
-The Nix Formatter Team is responsible for the migration of Nixpkgs, and will do so in close coordination with the release managers.
+- Define the initial _standard Nix format_
+- Establish the _Nix format team_
+- Create the _official Nix formatter_ implementation
+- Reformat Nixpkgs with the official Nix formatter
+- Specify that any default formatting in the Nix CLI must use the official Nix formatter
 
-CI will enforce the formatting on every pull request. The formatting hook will pin a version of the formatter for reproducibility, which is independent from the one provided by Nixpkgs. In order to minimize conflicts, the format used for Nixpkgs may only be updated shortly before release branch-off, at which point old pull requests will need to be rebased.
+### Standard Nix format
 
-In order to not clutter the history, formatting will be done all at once and the respective commit will be added to `.git-blame-ignore-revs`. In order to not cause any conflicts with back-porting, this will have to be done shortly before a release branch-off. Merge conflicts are unavoidable for most open pull requests.
+The initial version of the standard Nix format is defined in a section towards the end:
 
-#### Handling of staging branches
+[Initial standard Nix format](#initial-standard-nix-format).
+
+Significant changes to the standard Nix format must go through another RFC.
+
+The latest version of the standard Nix format must be in a file on the main branch of the [official Nix formatter](#official-nix-formatter).
+
+### Establishing the Nix format team
+
+A new team is created, initially consisting of:
+- @piegames (author of this RFC, shepherd of the original formatting RFC)
+- @infinisil (from Tweag, co-author of this RFC, shepherd of the original formatting RFC)
+- @tomberek (from Flox, shepherd of the original formatting RFC)
+- @0x4A6F (shepherd of the original formatting RFC)
+- @Sereja313 (from Serokell)
+
+Team member updates are left for the team itself to decide.
+
+### Official Nix formatter
+
+The Nix format team is given the authority and responsibility of
+creating and maintaining the _official Nix formatter_ implementation.
+This is a repository in the NixOS GitHub organisation.
+The repository will initially be based on [this nixfmt pull request](https://github.com/serokell/nixfmt/pull/118).
+
+Any release of the official Nix formatter must conform to the latest version of the [standard Nix format](#standard-nix-format).
+
+The latest release of the official Nix formatter should support the Nix language syntax of the latest Nix release.
+The formatter team should be consulted before the Nix language syntax is changed.
+
+For changes that maintain conformity to the standard Nix format,
+the team has the authority to accept or reject them.
+
+### Reformat Nixpkgs
+
+For every release of the official Nix formatter,
+the Nix format team has the authority to reformat Nixpkgs using the new version.
+
+In order to not clutter the history, formatting must be done with a single commit.
+This commit must be added to `.git-blame-ignore-revs`,
+so it [won't get shown](https://docs.github.com/en/repositories/working-with-files/using-files/viewing-a-file#ignore-commits-in-the-blame-view) in blames on GitHub,
+and can be ignored in the `git blame` command using [`--ignore-revs-file`](https://www.git-scm.com/docs/git-blame#Documentation/git-blame.txt---ignore-revs-fileltfilegt).
+
+CI must enforce the same formatting on every pull request.
+A pinned version of the formatter, independent of the one provided by Nixpkgs itself, must be used for CI.
+
+#### Releases and branches
+
+TODO: This section feels a bit too detailed and unnecessary
+
+This must be done in coordination with the NixOS release managers.
+In order to minimize conflicts, the format used for Nixpkgs may only be updated shortly before release branch-off, at which point old pull requests will need to be rebased.
+In order to not cause any conflicts with back-porting, this will have to be done shortly before a release branch-off. Merge conflicts are unavoidable for most open pull requests.
 
 Coordinate with release managers to merge the formatting PR in between two staging runs to avoid conflicts there.
 
@@ -161,22 +205,10 @@ Other long-running branches (haskell, python, etc.) will not be considered, ther
 
 In case a separate branch can't be merged into master again due to a formatting conflict, `git filter-branch` and a `git rebase` can still be used to resolve it without trouble.
 
-### Maintenance
+### Default Nix CLI formatting
 
-To help maintaining the formatter, a team is created.
-It is given commit access the formatter repository living in the NixOS GitHub organization and has the authority to change the formatting rules.
-It is bound to the style guide and rules specified in this RFC.
-
-Should new syntax features be introduced into Nix, the formatter team should be consulted prior to their introduction.
-
-The team initially consists of:
-- @infinisil
-- @tomberek
-- @piegames
-- @0x4A6F
-- @Sereja313
-
-The team has the authority to remove and add members as needed.
+In case the Nix CLI ever gets support for running a Nix formatter without a default,
+the official Nix formatter must be used.
 
 ## Examples and Interactions
 
@@ -270,11 +302,8 @@ TODO
 
 -----
 
-## The detailed format
+## Initial standard Nix format
 
-- When deciding between two *equally good* options, currently prevalent formatting style in Nixpkgs should be followed.
-  - The emphasis here is on "equally good". We should not fear of making radical changes to the current style if there are sufficient arguments in favor of it.
-- *Bad code does not deserve good formatting.*
 - Newlines are not guaranteed to be preserved, but empty lines are.
   - This allows the formatter to compact down multi-line expressions if necessary, while still allowing to structure the code appropriately.
 - Expressions of the same kind that can be treated as a sequence of expressions on the same level should be treated as such, even though they are technically parsed as a nested tree.
@@ -297,6 +326,12 @@ TODO
     if cond then foo
     else bar
     ```
+
+### Terms and definitions
+
+- Brackets: `[]`
+- Braces: `{}`
+- Parentheses: `()`
 
 ### Indentation
 
