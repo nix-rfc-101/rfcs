@@ -665,7 +665,6 @@ else
     - They contain at most one element
     - Fit on the line
   - As described under Binders below (TODO section link), nested attribute sets are always expanded.
-- Lists with a single element may be written compactly if that element is another list or attribute set
 
 **Examples**
 
@@ -692,42 +691,50 @@ else
 ]
 
 #3
-[ [
-  1
-  2
-  3
-] ]
+[
+  [
+    1
+    2
+    3
+  ]
+]
 
 #4
-[ {
-  mySingletons = [ [ ({
-    # stuff in there
-  }) ] ];
+[
+  {
+    mySingletons = [
+      [
+        ({
+          # stuff in there
+        })
+      ]
+    ];
   
-  foo = [
-    {
-      bar = 10;
-    }
-  ];
-
-  mySingletons = [ [
-    (function call)
-  ] ];
-} ]
+    mySingletons = [
+      [
+        (function call)
+      ]
+    ];
+  }
+]
 ```
 
 **Drawbacks**
 
-- This special casing of singleton lists can result to weird spacing when combined with parentheses: `([ [`
+- Singleton lists may use a lot of indentation
 
 **Rationale and alternatives**
 
-- Don't have a special compact form for singleton lists, at the cost of an indentation level and two additional lines
-- Be a bit less eager about expanding lists and attribute sets (for example by allowing up to n elements).
-
-- Argument in favor of not doing the special casing:
-  - If you have a singleton list, it's likely that you'll want to add more elements later anyways
-  - Otherwise your code could use a refactor to not need
+- Have a special compact form for singleton lists, to reduce the indentation level and remove two additional lines
+  ```nix
+  foo = [ {
+    # content
+  } ];
+  ```
+- Be a bit less eager about expanding lists and attribute sets (for example by allowing up to n elements on a single line).
+  ```nix
+  [ x y ]
+  ```
 
 ### Binders and inherit
 
