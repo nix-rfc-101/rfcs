@@ -17,7 +17,7 @@ related-issues: https://github.com/serokell/nixfmt/pull/118
 - Decide on basic Nix formatting style guidelines and pick a default formatter for Nix code.
 - `nix fmt` (or any future replacement) has to use this formatter as a default
 - Automatically format Nixpkgs and enforce the format using CI from then on.
-- Establish a formatter team to take care of the long-term maintenance of the code style and formatter.
+- Establish the Nix format team to take care of the long-term maintenance of the code style and formatter.
 
 ## Motivation
 
@@ -66,9 +66,6 @@ The interactions between different language features are complex and producing a
 Any attempt at creating an exhaustive rule set would be futile.
 Therefore, the formatting rules are intentionally under-specified, leaving room for the formatter implementation.
 However, the most important or potentially controversial rules are included, as well as some general meta-rules.
-The test suite of the formatter implementation specifies the exact formatting, it is up to the formatter team to adjust it as needed while staying within the design of this RFC.
-
-TODO move part of this out into a section which describes the future of the format (see also the team), and where it is documented.
 
 When deciding between two *equally good* options, currently prevalent formatting style in Nixpkgs should be followed.
 The emphasis here is on "equally good".
@@ -76,69 +73,10 @@ We should not fear of making radical changes to the current style if there are s
 
 *Bad code does not deserve good formatting.*
 
-### Formatter tooling
-
-TODO finally rework/remove this section
-
-There currently are three automatic formatters in the Nix ecosystem,
-[alejandra](https://github.com/kamadorueda/alejandra),
-[nixfmt](https://github.com/serokell/nixfmt)
-and [nixpkgs-fmt](https://github.com/nix-community/nixpkgs-fmt).
-
-The goal is to end up with one "blessed" formatter, which will officially be used by nixpkgs
-and which fills in the details of all the gaps left in the formatting rules.
-
-In order to pick a formatter, we looked at all of the existing implementations and had the following criteria:
-
-- Output malleability: Capability of matching the desired output style
-- Maintainability: The code base needs to be updated over time
-  - The language the formatter is written in matters
-  - The quality of the codebase
-  - The libraries the formatter depends on and their maintaindness
-  - Maintainability is more important than current maintenance situation, since this is a very long-term project
-
-In contrast, these are not criteria:
-
-- Current output style: Of course starting close to the target goal is preferable, but this is of little worth if the output style can't be easily adjusted if necessary.
-- Diff size when applied to current Nixpkgs: As noted in the formatting recommendations, the desired output does take into account existing Nixpkgs idioms and preferred format, but the size of the treewide change is not significant
-- Current usage metrics / Popularity
-- Performance: Beyond a certain threshold optimizing for this will detract from other criteria.
-
-We looked at all the potential formatter tools and tried to modify them, in order to get a feeling for the code base.
-
-nixpkgs-fmt uses a rule-based approach, where incremental changes are made to the input towards the output.
-It advertizes itself as being respectful towards the whitespace choices of the of the developer
-(e.g. never compact lists once expanded) and causing fairly minimal diffs. TODO
-
-alejandra has an output style pretty close to our formatting rules out of the box,
-not least because there is some overlap between the people involved in its development and the people involved in this RFC.
-It works as a pretty-printer, walking over the parsed AST and emitting equivalent code in the desired ouput.
-Some aspects of the original input are preserved, mainly the placement of empty lines.
-Its code base is pretty easy to get used to, many modifications are pretty easy to make.
-However, the code is extremely verbose due to the way comments are handled among other things,
-which makes development tedious, with lots of code duplication.
-More importantly though, we quickly ran into limitations where it was not easily possible to resolve some issues
-or to implement the desired output format.
-
-nixfmt is written in Haskell, and has a slightly steeper learning curve for multiple reasons.
-It too is an AST pretty printer (also respecting empty newlines),
-however it uses a powerful intermediate representation which then gets rendered,
-instead of directly emitting text tokens.
-This allows working on the format itself without bothering with some of the details like code comments.
-Thanks to that, the format is extremely flexible, and allowed us to implement a lot of changes in little time.
-nixfmt has by far the smallest code base, more intricate rules and at the same time less basic indentation errors.
-
-nixpkgs-fmt was quickly set aside because TODO.
-Our initial focus was on alejandra, mostly because it was actively maintained and had the aspiration of being a community project.
-nixfmt on the other hand received little attention, because of its higher barrier to entry,
-and because its output was pretty opinionated towards extreme code compactness.
-But after actually trying all of them out (from a developer perspective),
-it is pretty clear that nixfmt is the easiest one to modify and to maintain.
-
 ## Detailed design
 [design]: #detailed-design
 
-The RFC consist of three main parts, see the following sections for more information:
+The RFC consist of these main parts, see the following sections for more information:
 
 - Define the initial _standard Nix format_
 - Establish the _Nix format team_
@@ -152,9 +90,9 @@ The initial version of the standard Nix format is defined in a section towards t
 
 [Initial standard Nix format](#initial-standard-nix-format).
 
-Significant changes to the standard Nix format must go through another RFC. TODO do we really want that? What is "significant" here?
+Significant changes to the standard Nix format must go through another RFC.
 
-The latest version of the standard Nix format must be in a file on the main branch of the [official Nix formatter](#official-nix-´formatter).
+The latest version of the standard Nix format must be in a file on the main branch of the [official Nix formatter](#official-nix-formatter).
 
 ### Establishing the Nix format team
 
@@ -177,59 +115,51 @@ The repository will initially be based on [this nixfmt pull request](https://git
 Any release of the official Nix formatter must conform to the latest version of the [standard Nix format](#standard-nix-format).
 
 The latest release of the official Nix formatter should support the Nix language syntax of the latest Nix release.
-The formatter team should be consulted before the Nix language syntax is changed.
+The Nix format team should be consulted before the Nix language syntax is changed.
 
 For changes that maintain conformity to the standard Nix format,
 the team has the authority to accept or reject them.
 
 ### Reformat Nixpkgs
 
-For every release of the official Nix formatter,
-the Nix format team has the authority to reformat Nixpkgs using the new version.
+For formatting Nixpkgs itself, a pinned release version of the official Nix formatter must be used.
+CI must generally enforce all files in Nixpkgs to be formatted with this version at all times.
+Automatically generated files may be handled differently, see the next section.
 
-In order to not clutter the history, formatting must be done with a single commit.
-This commit must be added to `.git-blame-ignore-revs`,
-so it [won't get shown](https://docs.github.com/en/repositories/working-with-files/using-files/viewing-a-file#ignore-commits-in-the-blame-view) in blames on GitHub,
-and can be ignored in the `git blame` command using [`--ignore-revs-file`](https://www.git-scm.com/docs/git-blame#Documentation/git-blame.txt---ignore-revs-fileltfilegt).
+For every bump of the pinned formatter in Nixpkgs,
+its files must thus be re-formatted accordingly.
+The Nix format team is responsible for this task.
 
-CI must enforce the same formatting on every pull request.
-A pinned version of the formatter, independent of the one provided by Nixpkgs itself, must be used for CI.
-
-#### Releases and branches
-
-TODO: This section feels a bit too detailed and unnecessary
-
+In order to minimize conflicts especially when back-porting, it is preferable to only be updated and thus re-formatted shortly before release branch-off.
 This must be done in coordination with the NixOS release managers.
-In order to minimize conflicts, the format used for Nixpkgs may only be updated shortly before release branch-off, at which point old pull requests will need to be rebased.
-In order to not cause any conflicts with back-porting, this will have to be done shortly before a release branch-off. Merge conflicts are unavoidable for most open pull requests.
 
-Coordinate with release managers to merge the formatting PR in between two staging runs to avoid conflicts there.
+#### Automatically generated files
 
-Other long-running branches (haskell, python, etc.) will not be considered, there will however be an announcement so that contributors can coordinate to not have any of these branches in use at that time either.
-
-In case a separate branch can't be merged into master again due to a formatting conflict, `git filter-branch` and a `git rebase` can still be used to resolve it without trouble.
+There are automatically generated files in Nixpkgs, with a potentially different format.
+This RFC makes no decisions on how to handle such cases, but there are some options:
+- Exclude them from the CI via some tooling (e.g. treefmt if that is being used)
+- Format them anyway, either after-the-fact or ideally already in the generator tooling itself
 
 ### Default Nix CLI formatting
 
-In case the Nix CLI ever gets support for running a Nix formatter without a default,
+In case the Nix CLI ever gets support for running a default Nix formatter,
 the official Nix formatter must be used.
 
 ## Examples and Interactions
 
 [examples-and-interactions]: #examples-and-interactions
 
+### Git blames
+
+Commits that re-format Nixpkgs must be added to `.git-blame-ignore-revs`,
+so it [won't get shown](https://docs.github.com/en/repositories/working-with-files/using-files/viewing-a-file#ignore-commits-in-the-blame-view) in blames on GitHub,
+and can be ignored in the `git blame` command using [`--ignore-revs-file`](https://www.git-scm.com/docs/git-blame#Documentation/git-blame.txt---ignore-revs-fileltfilegt).
+
 ### Documentation
 
 TODO move up to detailed design section?
 
 Update [Section 20.1 (Coding conventiones → Syntax)](https://nixos.org/manual/nixpkgs/stable/#sec-syntax) of the Nixpkgs manual. All formatting-specific guidance is removed and replaced with instructions on how to automatically format Nixpkgs instead.
-
-### Automatically generated files
-
-There are automatically generated files in Nixpkgs, with a potentially different format.
-This RFC makes no decisions on how to handle such cases, but there are some options:
-- Exclude them from the CI via some tooling (e.g. treefmt if that is being used)
-- Format them anyway, either after-the-fact or ideally already in the generator tooling itself
 
 ### Formatting gotchas requiring manual intervention
 
@@ -272,6 +202,9 @@ TODO
 
 TODO
 
+#### Singleton lists
+
+TODO singleton lists should use `lib.singleton`
 
 ## Drawbacks
 
@@ -279,7 +212,7 @@ TODO
 
 - No automatic code format can be as pretty as a carefully crafted manual one. There will always be "ugly" edge cases.
     - However, we argue that on average the new format will be an improvement, and that contributors should not waste their precious time making the code slightly more pretty.
-- Every formatter will have bugs, but the formatter team will be able make fixes
+- Every formatter will have bugs, but the Nix format team will be able make fixes
 - Having a commit that changes the formatting, can make git blame harder to use. It will need the `--ignore-rev` flag.
     - GitHub also has [builtin functionality](https://docs.github.com/en/repositories/working-with-files/using-files/viewing-a-file#ignore-commits-in-the-blame-view) for this
 
@@ -770,6 +703,12 @@ else
   mySingletons = [ [ ({
     # stuff in there
   }) ] ];
+  
+  foo = [
+    {
+      bar = 10;
+    }
+  ];
 
   mySingletons = [ [
     (function call)
@@ -785,6 +724,10 @@ else
 
 - Don't have a special compact form for singleton lists, at the cost of an indentation level and two additional lines
 - Be a bit less eager about expanding lists and attribute sets (for example by allowing up to n elements).
+
+- Argument in favor of not doing the special casing:
+  - If you have a singleton list, it's likely that you'll want to add more elements later anyways
+  - Otherwise your code could use a refactor to not need
 
 ### Binders and inherit
 
@@ -899,9 +842,7 @@ inherit
 
 **Description**
 
-- Usually the semicolon is placed directly at the end of the binder. There are exceptions in which the semicolon is placed onto the following line instead:
-  - Multiline `inherit` statements
-  - Binders in which the value is a multiline `if` expression or nested operator.
+The semicolon is always placed on the same line as the expression it concludes.
 
 **Examples**
 
@@ -917,15 +858,14 @@ inherit
       arguments;
   attr3 =
     let
-    foo = "bar"
+      foo = "bar"
     in
     some statement;
   attr4 =
     if foo then
       "bar"
     else
-      "baz"
-  ;
+      "baz";
   attr5 =
     let
       foo = false;
@@ -942,30 +882,15 @@ inherit
     || cond2
     ||
       some function call
-      && cond3
-  ;
+      && cond3;
 }
 ```
 
 **Rationale and alternatives**
 
-There are three possible locations to put the semicolon:
-1. Directly at the end of the content.
-  - This may result in weird placements, especially when interacting with `if` expressions.
-  ```nix
-  attr4 =
-    if foo then
-      "bar"
-    else
-      "baz";
-  attr7 =
-    cond1
-    || cond2
-    ||
-      some function call
-      && cond3;
-  ```
-2. On a new line without indentation.
+
+There are four considered semicolon styles:
+1. On a new line without indentation.
   - This clearly marks a separation between attributes, however it is wasteful of space.
   ```nix
   attr3 =
@@ -975,13 +900,13 @@ There are three possible locations to put the semicolon:
   ;
   attr3 =
     let
-    foo = "bar"
+      foo = "bar"
     in
     some statement
   ;
   ```
-3. On a new line with one indentation level.
-  - This looks inferior to (2): Without the indentation, the semicolon acts as a closing token which visually ends the statement.
+2. On a new line with one indentation level.
+  - Just as wasteful on space as (1), but a bit less clear about signaling the end of the binding.
   ```nix
   inherit (pkgs)
     app1
@@ -995,6 +920,27 @@ There are three possible locations to put the semicolon:
       arguments
     ;
   ```
-
-A compromise between these it to use (1) by default and (2) in some exceptional cases.
-The latter is only used for syntax elements which may result in the semicolon being placed on a line with arbitrarily deep indentation, which is only the case for if expressions and some operator calls.
+3. A mix of (1) and (2), where usually the semicolon is placed directly at the end of the binder.
+   But with exceptions in which the semicolon is placed onto the following line instead in cases where the value is a multiline `if` expression or nested operator.
+   These are the only syntax elements which may result in the semicolon being placed on a line with arbitrarily deep indentation.
+   
+   ```nix
+   attr4 =
+     if foo then
+       "bar"
+     else
+       "baz"
+   ;
+   attr5 =
+     let
+       foo = false;
+     in
+     if foo then "bar" else "baz";
+   attr7 =
+     cond1
+     || cond2
+     ||
+       some function call
+       && cond3
+   ;
+   ```
