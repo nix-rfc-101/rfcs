@@ -8,7 +8,9 @@ shepherd-leader:
 related-issues: https://github.com/serokell/nixfmt/pull/118
 ---
 
-# Summary
+# Nix formatting
+
+## Summary
 
 [summary]: #summary
 
@@ -43,8 +45,6 @@ Non-goals of this RFC:
 
 ## Goals and approach
 
-### Detailed Format
-
 There are several goals that the formatting style should match.
 These are inherently at conflict with each other, requiring priorisation and making trade-offs.
 The resulting choice is always a compromise.
@@ -70,11 +70,15 @@ The test suite of the formatter implementation specifies the exact formatting, i
 
 TODO move part of this out into a section which describes the future of the format (see also the team), and where it is documented.
 
-- When deciding between two *equally good* options, currently prevalent formatting style in Nixpkgs should be followed.
-  - The emphasis here is on "equally good". We should not fear of making radical changes to the current style if there are sufficient arguments in favor of it.
-- *Bad code does not deserve good formatting.*
+When deciding between two *equally good* options, currently prevalent formatting style in Nixpkgs should be followed.
+The emphasis here is on "equally good".
+We should not fear of making radical changes to the current style if there are sufficient arguments in favor of it.
+
+*Bad code does not deserve good formatting.*
 
 ### Formatter tooling
+
+TODO finally rework/remove this section
 
 There currently are three automatic formatters in the Nix ecosystem,
 [alejandra](https://github.com/kamadorueda/alejandra),
@@ -148,9 +152,9 @@ The initial version of the standard Nix format is defined in a section towards t
 
 [Initial standard Nix format](#initial-standard-nix-format).
 
-Significant changes to the standard Nix format must go through another RFC.
+Significant changes to the standard Nix format must go through another RFC. TODO do we really want that? What is "significant" here?
 
-The latest version of the standard Nix format must be in a file on the main branch of the [official Nix formatter](#official-nix-formatter).
+The latest version of the standard Nix format must be in a file on the main branch of the [official Nix formatter](#official-nix-´formatter).
 
 ### Establishing the Nix format team
 
@@ -678,13 +682,44 @@ else
 
 ### with, assert
 
-The body after the statement starts on a new line, without indentation.
-For `with` expressions there may be exceptions for common idioms, in which the body already starts on the same line.
+**Description**
+
+- The body after the statement starts on a new line, without indentation.
+- For `with` expressions there may be exceptions for common idioms, in which the body already starts on the same line.
+
+**Examples**
+
+```nix
+with pkgs;
+assert foo == bar;
+{
+  meta.maintainers = with lib.maintainers; [
+    some
+    people
+  ];
+}
+```
 
 ### let
 
-Let bindings are always multiline.
-The "let" part is indented one level, but not the "in" part.
+**Description**
+
+- Let bindings are *always* multiline.
+- The "let" part is indented one level, but not the "in" part.
+- Each item in the "let" part is indented and starts on its own line. For more details, see the section TODO.
+- The "in" part starts on a new line.
+
+**Examples**
+
+```nix
+let
+  foo = "bar";
+in
+if foo == "bar" then
+  "hello"
+else
+  "world"
+```
 
 ### Attribute sets and lists
 
@@ -757,21 +792,6 @@ Let bindings and attribute sets share the same syntax for their items, which is 
 
 #### Binders
 
-TODO sort in
-
-- Attribute sets should be force-expanded even if they contain only one element in binders. 
-  - Example:
-    ```nix
-    {
-      # Bad
-      foo = { bar.baz = "qux"; };
-      # Good
-      foo = {
-        bar.baz = "qux";
-      };
-    }
-    ```
-
 **Description**
 
 Binders have the most special cases to accomodate for many common Nixpkgs idioms.
@@ -790,7 +810,7 @@ foo = function {
   # args
 };
 
-#4 multi line, starting on a new lien
+#4 multi line, starting on a new line
 foo =
   function
     arg1
@@ -803,12 +823,33 @@ Notable special cases are:
 
 - Single line values that would not benefit from style #2 keep using #1, even if this makes it go above the line limit. This mostly applies to simple strings and paths.
 - Attribute set values are *always* expanded. This has the consequence of always forcing nested attribute sets to be multiline (even if they would be single line otherwise because they only contain a single item), which usually is desired.
-- "statement-like" expressions like "let", "if" and "with" always use #4 (or #1).
-- If the value is a `with` followed by a function application, try to use #3.
+  ```nix
+  {
+    foo.bar.baz = "qux";
+    foo = {
+      bar.baz = "qux";
+    };
+  }
+  ```
+- "statement-like" expressions like "let", "if" and "assert" always use #4 (or #1).
+- If the value is a `with` followed by a function application or list or attribute set, try to use #3.
+  ```nix
+  buildInputs = with pkgs; [
+    some
+    dependencies
+  ];
+  ```
 
 **Alternatives**
 
-One could eliminate style #2 by having #4 always start on the first line. This would even reduce indentation in some cases. However, this may look really weird in some cases, especially when the binder is very long.
+One could eliminate style #2 by having #4 always start on the first line. This would even reduce indentation in some cases. However, this may look really weird in other cases, especially when the binder is very long:
+
+```nix
+some.very.long.attr = callFunction
+  arg1
+  arg2
+  arg3;
+```
 
 #### inherit
 
@@ -831,9 +872,9 @@ inherit
 
 **Description**
 
-If the inherit target is single-line, it is placed on the same line as the `inherit`, even if the following items do not fit onto one line.
-Otherwise, it starts on a new line with indentation, like the others.
-In that case, the remaining items are force-expanded too, even if they would have fit onto one line in the first place.
+- If the inherit target is single-line, it is placed on the same line as the `inherit`, even if the following items do not fit onto one line.
+- Otherwise, it starts on a new line with indentation, like the others.
+  - In that case, the remaining items are force-expanded too, even if they would have fit onto one line in the first place.
 
 **Examples**
 
@@ -858,28 +899,102 @@ inherit
 
 **Description**
 
-Barring some exceptions, on multiline items, the closing semicolon is on its own line and without indentation.
+- Usually the semicolon is placed directly at the end of the binder. There are exceptions in which the semicolon is placed onto the following line instead:
+  - Multiline `inherit` statements
+  - Binders in which the value is a multiline `if` expression or nested operator.
 
 **Examples**
 
 ```nix
-foo = bar;
-foo = function call {
-  # stuff
-};
-foo =
-  let
-   foo = "bar"
-  in
-  some statement
-;
+{
+  attr1 = bar;
+  attr2 = function call {
+    # stuff
+  };
+  attr3 =
+    function call
+      many
+      arguments;
+  attr3 =
+    let
+    foo = "bar"
+    in
+    some statement;
+  attr4 =
+    if foo then
+      "bar"
+    else
+      "baz"
+  ;
+  attr5 =
+    let
+      foo = false;
+    in
+    if foo then "bar" else "baz";
+  attr6 = function (
+    if foo then
+      "bar"
+    else
+      "baz"
+  );
+  attr7 =
+    cond1
+    || cond2
+    ||
+      some function call
+      && cond3
+  ;
+}
 ```
 
 **Rationale and alternatives**
 
 There are three possible locations to put the semicolon:
-Always directly at the end of the content, always on a new line with one indentation level, always on a new lien without indentation.
+1. Directly at the end of the content.
+  - This may result in weird placements, especially when interacting with `if` expressions.
+  ```nix
+  attr4 =
+    if foo then
+      "bar"
+    else
+      "baz";
+  attr7 =
+    cond1
+    || cond2
+    ||
+      some function call
+      && cond3;
+  ```
+2. On a new line without indentation.
+  - This clearly marks a separation between attributes, however it is wasteful of space.
+  ```nix
+  attr3 =
+    function call
+      many
+      arguments
+  ;
+  attr3 =
+    let
+    foo = "bar"
+    in
+    some statement
+  ;
+  ```
+3. On a new line with one indentation level.
+  - This looks inferior to (2): Without the indentation, the semicolon acts as a closing token which visually ends the statement.
+  ```nix
+  inherit (pkgs)
+    app1
+    app2
+    # …
+    app42
+    ;
+  attr3 =
+    function call
+      many
+      arguments
+    ;
+  ```
 
-On a new line with indentation is out, as it looks inferior to without indentation: Without indentation, the semicolon acts as a closing token which visually ends the statement.
-
-Having the semicolon at the end of the statement results in some weird placements, especially since it may be at an arbitrary indentation level depending on the content.
+A compromise between these it to use (1) by default and (2) in some exceptional cases.
+The latter is only used for syntax elements which may result in the semicolon being placed on a line with arbitrarily deep indentation, which is only the case for if expressions and some operator calls.
