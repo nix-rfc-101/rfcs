@@ -1,11 +1,11 @@
 ---
 feature: nix_formatting
 start-date: 2021-08-17
-author: \@piegamesde
-co-authors: \@infinisil
+author: piegamesde
+co-authors: infinisil
 shepherd-team:
 shepherd-leader:
-related-issues: https://github.com/serokell/nixfmt/pull/118
+related-issues: https://github.com/serokell/nixfmt/pull/118, https://github.com/piegamesde/nixpkgs/pull/4
 ---
 
 # Nix formatting
@@ -14,10 +14,13 @@ related-issues: https://github.com/serokell/nixfmt/pull/118
 
 [summary]: #summary
 
-- Decide on basic Nix formatting style guidelines and pick a default formatter for Nix code.
-- `nix fmt` (or any future replacement) has to use this formatter as a default
-- Automatically format Nixpkgs and enforce the format using CI from then on.
-- Establish the Nix format team to take care of the long-term maintenance of the code style and formatter.
+The RFC consist of these main parts, see the [detailed design section][design] for more information:
+
+- Define the initial _standard Nix format_
+- Establish the _Nix format team_
+- Create the _official Nix formatter_ implementation
+- Reformat Nixpkgs with the official Nix formatter
+- Require that any default formatting in the Nix CLI must use the official Nix formatter
 
 ## Motivation
 
@@ -32,16 +35,17 @@ The goals of this RFC are:
 
 - We want to prevent future debate around how things should be formatted.
 - We want to make it as easy as possible for contributors (especially new ones) to make changes without having to worry about formatting.
-- Conversely, reviewers should not be bothered with ill-formatted contributions.
+- Conversely, reviewers should not be bothered with poorly formatted contributions.
 - We want a unified Nix code style that's consistent with itself, easily readable, accessible and results in readable diffs.
 
 Non-goals of this RFC:
 
 - Code style aspects that are not purely syntactic (e.g. optional/redundant parentheses, adding `inherit` statements, swapping argument order with `flip`, …)
-- Nixpkgs-specific tweaks to the output format (e.g. using attribute names and other context for heuristics about how to best format the contents)
+- Nixpkgs-specific tweaks to the format (e.g. using attribute names and other context for heuristics about how to best format the contents)
 - Extended Nixpkgs-specific linting like nixpkgs-hammering
-- Formatting non-Nix files in Nixpkgs
-- Applying the format to other repositories within the NixOS organization containing Nix code. It is up to their respective maintainers to make the transition.
+- Formatting non-Nix files in Nixpkgs (that's for [treefmt](https://github.com/numtide/treefmt))
+- Applying the format to other repositories within the NixOS organization containing Nix code.
+  It is up to their respective maintainers to make the transition.
 
 ## Goals and approach
 
@@ -52,7 +56,9 @@ The resulting choice is always a compromise.
 In general, we want the code to be (in no particular order):
 
 - **Short and concise.** Code should not be spread across too many lines, but also without being crammed
-- **Readable.** The output format should reflect the semantic flow of the program. It should be clear where expressions start and end. The amount of information per line should be limited.
+- **Readable.** The output format should reflect the semantic flow of the program.
+  It should be clear where expressions start and end.
+  The amount of information per line should be limited.
 - **Consistent.** Similar syntax constructs should be formatted similarly.
     - The number of special cases in the formatting rules should be minimized.
 - **Diffable and stable.** Small changes to the code should not result in excessive changes in the output.
@@ -60,7 +66,7 @@ In general, we want the code to be (in no particular order):
 The general approach taken here is to liberally expand expressions by default, with the goal of being stable, diffable and consistent.
 Then, special cases with more compact output for the most common patterns are introduced as needed,
 sacrificing those properties in favor of conciseness.
-The idea is that this results in a format that is wide by default but compact where it matters.
+The idea is that this results in a format that is spread-out by default but compact where it matters.
 
 The interactions between different language features are complex and producing a style that matches the expectations involves a lot of special cases.
 Any attempt at creating an exhaustive rule set would be futile.
@@ -76,15 +82,10 @@ We should not fear of making radical changes to the current style if there are s
 ## Detailed design
 [design]: #detailed-design
 
-The RFC consist of these main parts, see the following sections for more information:
-
-- Define the initial _standard Nix format_
-- Establish the _Nix format team_
-- Create the _official Nix formatter_ implementation
-- Reformat Nixpkgs with the official Nix formatter
-- Specify that any default formatting in the Nix CLI must use the official Nix formatter
-
 ### Standard Nix format
+[standard-format]: #standard-nix-format
+
+The _standard nix format_ defines the officially recommended way how Nix code should be formatted.
 
 The initial version of the standard Nix format is defined in a section towards the end:
 
@@ -94,53 +95,71 @@ Significant changes to the standard Nix format must go through another RFC.
 
 The latest version of the standard Nix format must be in a file on the main branch of the [official Nix formatter](#official-nix-formatter).
 
-### Establishing the Nix format team
+### Nix format team
+[team]: #nix-format-team
 
-A new team is created, initially consisting of:
+The _Nix format team_ is established, it has the responsibility to
+- Maintain the [official Nix formatter](#official-nix-formatter)
+- Regularly [reformat Nixpkgs](#reformat-nixpkgs) with it
+
+See the linked sections for more information.
+
+Initially the team consists of these members:
 - @piegames (author of this RFC, shepherd of the original formatting RFC)
 - @infinisil (from Tweag, co-author of this RFC, shepherd of the original formatting RFC)
 - @tomberek (from Flox, shepherd of the original formatting RFC)
 - @0x4A6F (shepherd of the original formatting RFC)
-- @Sereja313 (from Serokell)
+- @Sereja313 (from Serokell, original sponsors of nixfmt)
 
 Team member updates are left for the team itself to decide.
 
 ### Official Nix formatter
+[formatter]: #official-nix-formatter
 
 The Nix format team is given the authority and responsibility of
 creating and maintaining the _official Nix formatter_ implementation.
 This is a repository in the NixOS GitHub organisation.
 The repository will initially be based on [this nixfmt pull request](https://github.com/serokell/nixfmt/pull/118).
+This pull request has been developed along with this RFC and is already reasonably close to the proposed initial standard format.
 
-Any release of the official Nix formatter must conform to the latest version of the [standard Nix format](#standard-nix-format).
+Any release of the official Nix formatter must conform to the latest version of the [standard Nix format][standard-format].
 
 The latest release of the official Nix formatter should support the Nix language syntax of the latest Nix release.
 The Nix format team should be consulted before the Nix language syntax is changed.
 
-For changes that maintain conformity to the standard Nix format,
-the team has the authority to accept or reject them.
-
 ### Reformat Nixpkgs
+[reformat]: #reformat-nixpkgs
 
 For formatting Nixpkgs itself, a pinned release version of the official Nix formatter must be used.
 CI must generally enforce all files in Nixpkgs to be formatted with this version at all times.
-Automatically generated files may be handled differently, see the next section.
+Automatically generated files may be handled differently, see [the next section][generated-files].
 
-For every bump of the pinned formatter in Nixpkgs,
-its files must thus be re-formatted accordingly.
+For every bump of the pinned formatter,
+the files of Nixpkgs must thus be re-formatted accordingly.
+Commits that reformat Nixpkgs will be added to `.git-blame-ignore-revs`,
+which can then be [ignored in tooling][blames].
 The Nix format team is responsible for this task.
 
-In order to minimize conflicts especially when back-porting, it is preferable to only be updated and thus re-formatted shortly before release branch-off.
-This must be done in coordination with the NixOS release managers.
+In order to minimize conflicts especially when back-porting,
+the pinned formatter should preferably only be updated shortly before the release branch-off.
+This should be done in coordination with the NixOS release managers.
 
 #### Automatically generated files
+[generated-files]: #automatically-generated-files
 
 There are automatically generated files in Nixpkgs, with a potentially different format.
 This RFC makes no decisions on how to handle such cases, but there are some options:
 - Exclude them from the CI via some tooling (e.g. treefmt if that is being used)
 - Format them anyway, either after-the-fact or ideally already in the generator tooling itself
 
+#### Contributor doc updates
+[docs]: #contributor-doc-updates
+
+The [Nixpkgs contributor documentation](https://github.com/NixOS/nixpkgs/blob/master/CONTRIBUTING.md) should be updated to contain all relevant information.
+All formatting-specific guidance is removed and replaced with instructions on how to automatically format Nixpkgs instead.
+
 ### Default Nix CLI formatting
+[cli-default]: #default-nix-cli-formatting
 
 In case the Nix CLI ever gets support for running a default Nix formatter,
 the official Nix formatter must be used.
@@ -150,16 +169,10 @@ the official Nix formatter must be used.
 [examples-and-interactions]: #examples-and-interactions
 
 ### Git blames
+[blames]: #git-blames
 
-Commits that re-format Nixpkgs must be added to `.git-blame-ignore-revs`,
-so it [won't get shown](https://docs.github.com/en/repositories/working-with-files/using-files/viewing-a-file#ignore-commits-in-the-blame-view) in blames on GitHub,
+Reformatting commits that get added to `.git-ignore-revs` [won't get shown](https://docs.github.com/en/repositories/working-with-files/using-files/viewing-a-file#ignore-commits-in-the-blame-view) in blames on GitHub,
 and can be ignored in the `git blame` command using [`--ignore-revs-file`](https://www.git-scm.com/docs/git-blame#Documentation/git-blame.txt---ignore-revs-fileltfilegt).
-
-### Documentation
-
-TODO move up to detailed design section?
-
-Update [Section 20.1 (Coding conventiones → Syntax)](https://nixos.org/manual/nixpkgs/stable/#sec-syntax) of the Nixpkgs manual. All formatting-specific guidance is removed and replaced with instructions on how to automatically format Nixpkgs instead.
 
 ### Formatting gotchas requiring manual intervention
 
@@ -169,7 +182,7 @@ A lot of the times though, the same program can be equivalently expressed in a p
 
 #### CLI argument flags
 
-It is ommon to pass in CLI flags (e.g. to builders) like this:
+It is common to pass in CLI flags (e.g. to builders) like this:
 
 ```nix
 [
@@ -194,40 +207,63 @@ lib.cli.toGNUCommandLine {} {
 }
 ```
 
-#### Badly placed comments
-
-TODO
-
-#### Long second-to-last function argument
-
-TODO
-
 #### Singleton lists
 
-TODO singleton lists should use `lib.singleton`
+Sometimes a list only needs a single element
+and there's no expectation to add more in the future.
+This would be formatted like this:
+
+```nix
+{
+  list = [
+    {
+      foo = 10;
+      bar = 20;
+    }
+  ];
+}
+```
+
+In this case one level of indentation can be saved using [`lib.singleton`](https://nixos.org/manual/nixpkgs/stable#function-library-lib.lists.singleton):
+
+```nix
+{
+  list = lib.singleton {
+    foo = 10;
+    bar = 20;
+  };
+}
+```
 
 ## Drawbacks
 
 [drawbacks]: #drawbacks
 
 - No automatic code format can be as pretty as a carefully crafted manual one. There will always be "ugly" edge cases.
-    - However, we argue that on average the new format will be an improvement, and that contributors should not waste their precious time making the code slightly more pretty.
-- Every formatter will have bugs, but the Nix format team will be able make fixes
-- Having a commit that changes the formatting, can make git blame harder to use. It will need the `--ignore-rev` flag.
-    - GitHub also has [builtin functionality](https://docs.github.com/en/repositories/working-with-files/using-files/viewing-a-file#ignore-commits-in-the-blame-view) for this
+  - However, we argue that on average the new format will be an improvement,
+    and that contributors should not waste their time making the code slightly more pretty.
+- Every formatter will have bugs, but the Nix format team will be able to make fixes.
+- Having a commit that changes the formatting, can make git blame harder to use.
+  - This can be [worked around in interfaces][blames].
 
 ## Alternatives
 
 [alternatives]: #alternatives
 
-- Keep the status quo of not having an official formatter. The danger is that this creates discord within the Nix community. The current friction and maintainer churn due to bad formatting may arguably be small, but not negligible.
-- Pick a different formatter, or a different format
-- Pick a formatter and/or format, but don't enforce it in CI, to allow manually tweaking the output if necessary.
-- Apply the format incrementally, i.e. only changed files get formatted, to make a more graceful transition. However, such an approach would not improve the amount of merge conflicts, and increase the workload for contributors during that time significantly.
+- Keep the status quo of not having an official formatter.
+  The danger is that this creates discord within the Nix community.
+  The current friction and maintainer churn due to bad formatting may arguably be small, but not negligible.
+- Specify a different format.
+- Specify a format, but don't enforce it in CI, to allow manually tweaking the output if necessary.
+- Apply the format incrementally, i.e. only changed files get formatted, to make a more graceful transition.
+  However, such an approach would not reduce the amount of merge conflicts,
+  and increase the workload for contributors during that time significantly.
 
 ## Unresolved questions
 
 [unresolved]: #unresolved-questions
+
+- Should the line length limit be specified?
 
 ## Future work
 
@@ -235,7 +271,7 @@ TODO singleton lists should use `lib.singleton`
 
 - General style guidelines beyond AST reformatting
 - Making widespread use of linters like Nixpkgs-hammering
-- Applying the formatter to other repositories within the Nix community
+- Enforcing the format to other official repositories
 
 -----
 
@@ -639,7 +675,8 @@ assert foo == bar;
 
 - Let bindings are *always* multiline.
 - The "let" part is indented one level, but not the "in" part.
-- Each item in the "let" part is indented and starts on its own line. For more details, see the section TODO.
+- Each item in the "let" part is indented and starts on its own line.
+  For more details, see the [binders section](#binders).
 - The "in" part starts on a new line.
 
 **Examples**
@@ -664,7 +701,7 @@ else
   - They can only be on a single line if:
     - They contain at most one element
     - Fit on the line
-  - As described under Binders below (TODO section link), nested attribute sets are always expanded.
+  - As described under [Binders](#binders) below, nested attribute sets are always expanded.
 
 **Examples**
 
@@ -744,7 +781,7 @@ Let bindings and attribute sets share the same syntax for their items, which is 
 
 **Description**
 
-Binders have the most special cases to accomodate for many common Nixpkgs idioms.
+Binders have the most special cases to accommodate for many common Nixpkgs idioms.
 Generally, the following styles exist, which are used depending on the kind and size of the value:
 
 ```nix
