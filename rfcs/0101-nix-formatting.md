@@ -3,6 +3,7 @@ feature: nix_formatting
 start-date: 2021-08-17
 author: piegamesde
 co-authors: infinisil
+pre-RFC reviewers: tomberek, 0x4A6F
 shepherd-team:
 shepherd-leader:
 related-issues: https://github.com/serokell/nixfmt/pull/118, https://github.com/piegamesde/nixpkgs/pull/4
@@ -192,7 +193,7 @@ It is common to pass in CLI flags (e.g. to builders) like this:
 
 However, this will be formatted sub-optimally:
 
-```
+```nix
 [
   "--some-flag"
   "some-value"
@@ -201,7 +202,7 @@ However, this will be formatted sub-optimally:
 
 The solution is to use a more structured helper function:
 
-```
+```nix
 lib.cli.toGNUCommandLine {} {
   some-flag = "some-value";
 }
@@ -435,23 +436,25 @@ function arg1 arg2 arg3 # reached line limit here
   ]
   arg7
 
-#4
+#4 All arguments that don't fit on the same line, start indented on a new line
 function arg1
   {
-    # stuff
+    # items that don't fit on same line
   }
   arg3
 
 #5
 function
   {
-   # …
+    a = 1;
+    b = 2;
   }
   {
-   # …
+    c = 1;
+    d = 2;
   }
 
-#6
+#6 (with "--width=20")
 function arg1 (
   function2 args
 )
@@ -654,18 +657,18 @@ else
 **Description**
 
 - The body after the statement starts on a new line, without indentation.
-- For `with` expressions there may be exceptions for common idioms, in which the body already starts on the same line.
+- There may be exceptions for common idioms, in which the body already starts on the same line.
 
 **Examples**
 
 ```nix
 with pkgs;
-assert foo == bar;
-{
-  meta.maintainers = with lib.maintainers; [
-    some
-    people
-  ];
+assert foo == bar; {
+  meta.maintainers =
+    with lib.maintainers; [
+      some
+      people
+    ];
 }
 ```
 
@@ -747,7 +750,7 @@ else
       ]
     ];
   
-    mySingletons = [
+    mySingletons' = [
       [
         (function call)
       ]
@@ -804,6 +807,33 @@ foo =
     arg2
     arg3
 ;
+
+#5 simple function arguments (<=2) start on the same line
+add = x: y: {
+  result = x + y;
+};
+
+#6 attribute bindings always start on a new line
+# If we add more attributes, the indentation stays the same, see #7
+split =
+  { x, ... }:
+  {
+    inc = x + 1;
+    dec = x - 1;
+  };
+
+#7 with enough attribute bindings, they will start on a new line and become multline 
+# it is common to expand input arguments in a way that does not change the number of function applications necessary
+outputs =
+  {
+    x,
+    y,
+    z,
+    ...
+  }:
+  {
+    result = x + y;
+  };
 ```
 
 Notable special cases are:
@@ -813,7 +843,7 @@ Notable special cases are:
   ```nix
   {
     foo.bar.baz = "qux";
-    foo = {
+    foo' = {
       bar.baz = "qux";
     };
   }
@@ -849,9 +879,9 @@ The items are either all on the same line, or all on a new line each (with inden
 ```nix
 inherit foo bar baz;
 inherit
-  foo
-  bar
-  baz
+  foo'
+  bar'
+  baz'
 ;
 ```
 
@@ -866,7 +896,7 @@ inherit
 **Examples**
 
 ```nix
-inherit (pkgs) app1 app2 app3;
+inherit (pkgs) ap1 ap2 ap3;
 inherit (pkgs)
   app1
   app2
@@ -900,28 +930,28 @@ The semicolon is always placed on the same line as the expression it concludes.
     function call
       many
       arguments;
-  attr3 =
+  attr4 =
     let
-      foo = "bar"
+      foo = "bar";
     in
     some statement;
-  attr4 =
+  attr5 =
     if foo then
       "bar"
     else
       "baz";
-  attr5 =
+  attr6 =
     let
       foo = false;
     in
     if foo then "bar" else "baz";
-  attr6 = function (
+  attr7 = function (
     if foo then
       "bar"
     else
       "baz"
   );
-  attr7 =
+  attr8 =
     cond1
     || cond2
     ||
@@ -940,14 +970,12 @@ There are four considered semicolon styles:
   attr3 =
     function call
       many
-      arguments
-  ;
+      arguments;
   attr3 =
     let
-      foo = "bar"
+      foo = "bar";
     in
-    some statement
-  ;
+    some statemens;
   ```
 2. On a new line with one indentation level.
   - Just as wasteful on space as (1), but a bit less clear about signaling the end of the binding.
@@ -956,13 +984,12 @@ There are four considered semicolon styles:
     app1
     app2
     # …
-    app42
-    ;
+    app42;
+
   attr3 =
     function call
       many
-      arguments
-    ;
+      arguments;
   ```
 3. A mix of (1) and (2), where usually the semicolon is placed directly at the end of the binder.
    But with exceptions in which the semicolon is placed onto the following line instead in cases where the value is a multiline `if` expression or nested operator.
@@ -973,18 +1000,21 @@ There are four considered semicolon styles:
      if foo then
        "bar"
      else
-       "baz"
-   ;
+       "baz";
+
    attr5 =
      let
        foo = false;
      in
-     if foo then "bar" else "baz";
+     if foo then
+       "bar"
+     else
+       "baz";
+       
    attr7 =
      cond1
      || cond2
      ||
        some function call
-       && cond3
-   ;
+       && cond3;
    ```
