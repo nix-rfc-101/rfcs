@@ -13,9 +13,7 @@ related-issues: https://github.com/serokell/nixfmt/pull/118, https://github.com/
 
 ## Summary
 
-[summary]: #summary
-
-The RFC consist of these main parts, see the [detailed design section][design] for more information:
+The RFC consist of these main parts, see the [detailed design section](#detailed-design) for more information:
 
 - Define the initial _standard Nix format_
 - Establish the _Nix format team_
@@ -24,8 +22,6 @@ The RFC consist of these main parts, see the [detailed design section][design] f
 - Require that any default formatting in the Nix CLI must use the official Nix formatter
 
 ## Motivation
-
-[motivation]: #motivation
 
 Currently, there is no authoritative formatting style guide for Nix code, including in Nixpkgs.
 The current code style in Nixpkgs has evolved organically over time, leading to inconsistencies both across files and language features.
@@ -81,10 +77,8 @@ We should not fear of making radical changes to the current style if there are s
 *Bad code does not deserve good formatting.*
 
 ## Detailed design
-[design]: #detailed-design
 
 ### Standard Nix format
-[standard-format]: #standard-nix-format
 
 The _standard nix format_ defines the officially recommended way how Nix code should be formatted.
 
@@ -97,7 +91,6 @@ Significant changes to the standard Nix format must go through another RFC.
 The latest version of the standard Nix format must be in a file on the main branch of the [official Nix formatter](#official-nix-formatter).
 
 ### Nix format team
-[team]: #nix-format-team
 
 The _Nix format team_ is established, it has the responsibility to
 - Maintain the [official Nix formatter](#official-nix-formatter)
@@ -115,7 +108,6 @@ Initially the team consists of these members:
 Team member updates are left for the team itself to decide.
 
 ### Official Nix formatter
-[formatter]: #official-nix-formatter
 
 The Nix format team is given the authority and responsibility of
 creating and maintaining the _official Nix formatter_ implementation.
@@ -123,22 +115,21 @@ This is a repository in the NixOS GitHub organisation.
 The repository will initially be based on [this nixfmt pull request](https://github.com/serokell/nixfmt/pull/118).
 This pull request has been developed along with this RFC and is already reasonably close to the proposed initial standard format.
 
-Any release of the official Nix formatter must conform to the latest version of the [standard Nix format][standard-format].
+Any release of the official Nix formatter must conform to the latest version of the [standard Nix format](#standard-nix-format).
 
 The latest release of the official Nix formatter should support the Nix language syntax of the latest Nix release.
 The Nix format team should be consulted before the Nix language syntax is changed.
 
 ### Reformat Nixpkgs
-[reformat]: #reformat-nixpkgs
 
 For formatting Nixpkgs itself, a pinned release version of the official Nix formatter must be used.
 CI must generally enforce all files in Nixpkgs to be formatted with this version at all times.
-Automatically generated files may be handled differently, see [the next section][generated-files].
+Automatically generated files may be handled differently, see [the next section](#automatically-generated-files).
 
 For every bump of the pinned formatter,
 the files of Nixpkgs must thus be re-formatted accordingly.
 Commits that reformat Nixpkgs will be added to `.git-blame-ignore-revs`,
-which can then be [ignored in tooling][blames].
+which can then be [ignored in tooling](#git-blames).
 The Nix format team is responsible for this task.
 
 In order to minimize conflicts especially when back-porting,
@@ -146,7 +137,6 @@ the pinned formatter should preferably only be updated shortly before the releas
 This should be done in coordination with the NixOS release managers.
 
 #### Automatically generated files
-[generated-files]: #automatically-generated-files
 
 There are automatically generated files in Nixpkgs, with a potentially different format.
 This RFC makes no decisions on how to handle such cases, but there are some options:
@@ -154,23 +144,18 @@ This RFC makes no decisions on how to handle such cases, but there are some opti
 - Format them anyway, either after-the-fact or ideally already in the generator tooling itself
 
 #### Contributor doc updates
-[docs]: #contributor-doc-updates
 
 The [Nixpkgs contributor documentation](https://github.com/NixOS/nixpkgs/blob/master/CONTRIBUTING.md) should be updated to contain all relevant information.
 All formatting-specific guidance is removed and replaced with instructions on how to automatically format Nixpkgs instead.
 
 ### Default Nix CLI formatting
-[cli-default]: #default-nix-cli-formatting
 
 In case the Nix CLI ever gets support for running a default Nix formatter,
 the official Nix formatter must be used.
 
 ## Examples and Interactions
 
-[examples-and-interactions]: #examples-and-interactions
-
 ### Git blames
-[blames]: #git-blames
 
 Reformatting commits that get added to `.git-ignore-revs` [won't get shown](https://docs.github.com/en/repositories/working-with-files/using-files/viewing-a-file#ignore-commits-in-the-blame-view) in blames on GitHub,
 and can be ignored in the `git blame` command using [`--ignore-revs-file`](https://www.git-scm.com/docs/git-blame#Documentation/git-blame.txt---ignore-revs-fileltfilegt).
@@ -238,18 +223,14 @@ In this case one level of indentation can be saved using [`lib.singleton`](https
 
 ## Drawbacks
 
-[drawbacks]: #drawbacks
-
 - No automatic code format can be as pretty as a carefully crafted manual one. There will always be "ugly" edge cases.
   - However, we argue that on average the new format will be an improvement,
     and that contributors should not waste their time making the code slightly more pretty.
 - Every formatter will have bugs, but the Nix format team will be able to make fixes.
 - Having a commit that changes the formatting, can make git blame harder to use.
-  - This can be [worked around in interfaces][blames].
+  - This can be [worked around in interfaces](#git-blames).
 
 ## Alternatives
-
-[alternatives]: #alternatives
 
 - Keep the status quo of not having an official formatter.
   The danger is that this creates discord within the Nix community.
@@ -262,13 +243,9 @@ In this case one level of indentation can be saved using [`lib.singleton`](https
 
 ## Unresolved questions
 
-[unresolved]: #unresolved-questions
-
 - Should the line length limit be specified?
 
 ## Future work
-
-[future]: #future-work
 
 - General style guidelines beyond AST reformatting
 - Making widespread use of linters like Nixpkgs-hammering
