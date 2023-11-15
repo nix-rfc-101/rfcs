@@ -185,10 +185,10 @@ However, this will be formatted sub-optimally:
 ]
 ```
 
-The solution is to use a more structured helper function:
+If the CLI also accepts GNU-style flags, a more structured helper can be used instead:
 
 ```nix
-lib.cli.toGNUCommandLine {} {
+lib.cli.toGNUCommandLine { } {
   some-flag = "some-value";
 }
 ```
@@ -255,6 +255,11 @@ In this case one level of indentation can be saved using [`lib.singleton`](https
 
 ## Initial standard Nix format
 
+Terms and definitions:
+- Brackets: `[]`
+- Braces: `{}`
+- Parentheses: `()`
+
 - Newlines are not guaranteed to be preserved, but empty lines are.
   - This allows the formatter to compact down multi-line expressions if necessary, while still allowing to structure the code appropriately.
 - Expressions of the same kind that can be treated as a sequence of expressions on the same level should be treated as such, even though they are technically parsed as a nested tree.
@@ -269,35 +274,55 @@ In this case one level of indentation can be saved using [`lib.singleton`](https
     else
       baz
     ```
-- Any two (sub-)expressions that are fully on a common single line must have a common (transitive) parent expression which is also fully on that line.
-  - Equivalently: If a maximally parenthesized form of a line fully contains a parenthesis pair, there must be a single outermost pair on that line, meaning it contains all of the others.
-  - Example:
-    ```nix
-    # Bad, because cond and foo are two expressions but they don't have a common parent on the same line
-    if cond then foo
-    else bar
-    ```
 
-### Terms and definitions
+### Single-line common ancestor expression rule
 
-- Brackets: `[]`
-- Braces: `{}`
-- Parentheses: `()`
+For any two (sub-)expressions that are fully on a common single line, their smallest common ancestor expression must also be on the same line.
+
+**Example**
+
+```nix
+# Bad, expressions cond and bar are fully on the same line,
+# but their smallest common ancestor expression is the entire if-then-else, which spans multiple lines
+if cond then foo
+else bar
+
+# Okay, cond, foo and bar have the if-then-else as a common ancestor expression,
+# which is also fully on the same line
+if cond then foo else bar
+
+# Bad, due to function application precedence, the smallest common ancestor expression
+# of foo and bar is `foo || bar baz`, which spans two lines
+foo || bar
+  baz
+```
+
+**Rationale**
+
+This rule has turned out to be very practical at catching code that could be potentially hard to understand or edit.
+
+### Line length
+
+Lines have a soft length limit that doesn't count indentation.
+There may also be a hard length limit that includes indentation.
+String-like values such as strings, paths, comments, urls, etc. may go over the hard length limit.
+These limits should be configurable, and the soft length limit should default to 100 characters.
 
 ### Indentation
 
 - Two spaces are used for each indentation level.
   - This may be revisited should Nix get proper support for [using tabs for indentation](https://github.com/NixOS/nix/issues/7834) in the future.
-- There is no vertical alignment, neither at the start of the line nor within lines.
+- Vertical alignment may not be persisted, neither at the start of the line nor within lines.
   - Examples:
     ```nix
     {
-      # Within-line vertical alignment
+      # Bad, vertical alignment Within lines
       linux    = { execFormat = elf;     families = {              }; };
       netbsd   = { execFormat = elf;     families = { inherit bsd; }; };
       none     = { execFormat = unknown; families = {              }; };
       openbsd  = { execFormat = elf;     families = { inherit bsd; }; };
-      # Start of line vertical alignment
+
+      # Bad, vertical alignment at the start of line
       optExecFormat =
         lib.optionalString (kernel.name == "netbsd" &&
                             gnuNetBSDDefaultExecFormat cpu != kernel.execFormat
@@ -531,17 +556,17 @@ name: value:
   - The leading comma style was a lesser-evil workaround for the lack of trailing commas in the Nix language. Now that the language has this feature, there is no reason to keep it that way anymore.
 
 
-### Operations
+### Operators
 
 **Description**
 
-Chained operations of an operator with the same binding strength are treated as one.
-If an operation chain does not fit onto one line, it is expanded such that every operator starts a new line.
-Usually, the operands start on the same line as their operator.
-Notable exception to this are other nested operators and wide function calls.
-The right hand side of an operation (or, if chained, all but the first operand) is indented.
+Chained binary associative [operators](https://nixos.org/manual/nix/stable/language/operators.html#operators) (except [function application](#function-application)) with the same or monotonically decreasing precedence are treated as one.
 
-Binary operators (which cannot be chained) use a more compact representation,
+If an operator chain does not fit onto one line, it is expanded such that every operator starts a new line:
+- If the operand can also fit on the same line as the operator, it's put there
+- Otherwise, the operand usually starts indented on a new line, with special handling for parenthesis, brackets, braces, function applications
+
+Binary operators (which cannot be chained) may use a more compact representation,
 where the operator is not required to start a new line even when the operands span multiple lines.
 
 The `//` operator is special cased to such a more compact representation too,
@@ -551,11 +576,38 @@ The motivation for this is that it is often used in places that are very sensiti
 **Examples**
 
 ```nix
+# These chained associative operators have increasing precedence, so they're _not_ treated the same
+foo
+-> # <- The operator starts on a new line, but right operand is all of the below lines, they don't fit here, so indent
+  bar
+  ||
+    baz
+    && qux # <- The operand fits on this line
+
+# These chained associative operators have decreasing precedence, so they're treated the same
+foo
+&& bar # <- All of these operands are just identifiers, they fit on the same line
+|| baz # <- We shouldn't indent these lines, because it misleads into thinking that || binds stronger than &&
+-> qux
+
+[
+  some
+  flags
+]
+++ ( # <- The operator is on a new line, but parenthesis/brackets/braces can start on the same line
+  foo
+)
+++ optionals condition [ # <- As are multiline functions applications
+  more
+  items
+]
+++
+  runCommand name # <- But only functions whose last argument can start on the same line
+    ''
+      echo hi
+    ''
+    test
 ```
-
-**Drawbacks**
-
-**Rationale and alternatives**
 
 ### if
 
