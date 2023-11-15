@@ -566,12 +566,7 @@ If an operator chain does not fit onto one line, it is expanded such that every 
 - If the operand can also fit on the same line as the operator, it's put there
 - Otherwise, the operand usually starts indented on a new line, with special handling for parenthesis, brackets, braces, function applications
 
-Binary operators (which cannot be chained) may use a more compact representation,
-where the operator is not required to start a new line even when the operands span multiple lines.
-
-The `//` operator is special cased to such a more compact representation too,
-even though this results in multiple violations of the style guidelines.
-The motivation for this is that it is often used in places that are very sensitive to the indentation of large attribute sets.
+Operator chains in bindings may be compacted as long as all lines between the first and last one are indented.
 
 **Examples**
 
@@ -607,6 +602,25 @@ foo
       echo hi
     ''
     test
+
+{
+  # In a binding, we can use a more compact form as long as all inbetween lines are indented
+  foo = bar // {
+    x = 10;
+    y = 20;
+  } // baz;
+}
+
+{
+  # Bad, we can't use the more compact form because an intermediate line is not indented.
+  foo = {
+    x = 10;
+    y = 20;
+  } // foo // {
+    z = 30;
+    w = 40;
+  };
+}
 ```
 
 ### if
