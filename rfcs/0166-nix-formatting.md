@@ -402,7 +402,7 @@ For sequences of items in expressions, like elements in a list, key-value pairs 
     foo
     bar
     baz
-  ;
+    ;
 }
 ```
 
