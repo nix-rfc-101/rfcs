@@ -262,7 +262,7 @@ Terms and definitions:
 - Braces: `{}`
 - Parentheses: `()`
 
-- Line breaks may be added or removed. Consecutive empty lines must be turned into a single empty line.
+- Line breaks may be added or removed, but empty lines must not be created. Single empty lines must be preserved, and consecutive empty lines must be turned into a single empty line.
   This allows the formatter to expand or compact multi-line expressions, while still allowing grouping of code.
 
   For example, formatting this code:
@@ -430,7 +430,7 @@ This rule has turned out to be very practical at catching code that could be pot
 
 Unless stated otherwise, any expression that fits onto one single line must be trivially formatted as such.
 
-For list elements, attributes and function arguments, the following applies:
+For list elements, attributes, and function arguments, the following applies:
 
 - If expanded into multiple lines, each item must be on its own line.
   - Grouping similar items together can be done by adding blank lines or comments between the groups instead.
