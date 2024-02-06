@@ -258,12 +258,409 @@ In this case one level of indentation can be saved using [`lib.singleton`](https
 
 -----
 
-## Initial standard Nix format
+## Terms and definitions:
 
-Terms and definitions:
-- Brackets: `[]`
-- Braces: `{}`
-- Parentheses: `()`
+- **Brackets:** `[]`
+- **Braces:** `{}`
+- **Parentheses**: `()`
+- **Expressions:**
+  Any syntax node that would be a syntactically correct Nix program on its own.
+- **Terms:**
+  Expressions which can be used as list items are called terms.
+
+Corollaries: All parenthesized expressions are terms. All terms are expressions.
+
+
+data Term
+    = Token Leaf
+    | String String
+    | Path Path
+    | List Leaf [Term] Leaf
+    | Set (Maybe Leaf) Leaf [Binder] Leaf
+    | Selection Term [Selector] (Maybe (Leaf, Term))
+    | Parenthesized Leaf Expression Leaf
+    deriving (Eq, Show)
+
+Absorbable expressions:
+
+Attribute sets, lists, and multiline `''` strings are called absorbable terms. Parenthesized absorbable terms are absorbable terms again too.
+
+
+
+"Terms that don't have inbetween indentation"
+
+Every expression except ints, floats, paths and identifiers can be multiline
+
+```nix
+{
+  # Not valid
+  ${''foo''} = "bar";
+  "
+    foo
+  " = "bar";
+}
+```
+
+Expressions that can be multiline may be absorbable.
+
+
+Final definition??: Absorbable expressions are ones that
+- When formatted on their own, don't have any non-indented lines inbetween the first and last
+- Where the semantic result of the expression is "obvious" from the first line
+- Need to be able to have expression prefixes (aka no hardline)
+
+Multiline expressions that don't have any inbetween indentation:
+- ❌ int, float, path, variable
+- ❌ string, interpolation
+  - ❌ `"` strings
+  - ✅ `''` strings
+
+
+    # Looks like a string here
+    ''
+    '' + "foo"
+- ✅ attribute set (with or without `rec`)
+  ```
+  # Single operator chain
+  bar // baz // {
+    foo = 10;
+  }
+  ```
+- ✅ list
+- function declaration:
+  - ✅
+    ```
+    foo: bar: {
+
+    }
+    ```
+  - ❌
+    ```
+    {
+  
+    }: {
+      
+    }
+    ```
+- ✅ function application
+  ```
+  foo {
+    
+  }
+  
+  # No closing non-indented line!!
+  foo
+    bar
+    baz
+  
+  services.foo.enable =
+    foo
+      bar
+      baz;
+    
+  services.foo.enable
+  ++
+    foo
+      bar
+      baz
+      
+  x = (
+    bar: {
+      x = 10;
+    }
+  );
+  
+  y (
+    bar: {
+      x = 10;
+    }
+  );
+  
+  (
+    bar: {
+      x = 10;
+    }
+  );
+  
+  bar (
+    bar: {
+      x = 10;
+    }
+  );
+  
+  ```
+- ❌ if-then-else
+- ❌ let-in
+- ❌ assert
+  ```
+  assert foo;
+  {            # inbetween non-indented line
+    
+  }
+  ```
+- ✅ with
+  ```
+     foo = {
+     # ...
+   };
+
+   foo = with bar; {
+     # ...
+   };
+   
+   foo =
+     with foo;
+     with bar;
+     {
+       # ...
+     };
+
+   foo: with bar; {
+     # ...
+   };
+
+   
+   { lib }:
+   {
+     # ...
+   }
+
+   # Either this
+   { lib }:
+   with lib;
+   {
+     # ...
+   }
+   
+   # Or this
+   { lib }:
+   with lib; {
+     # ...
+   }
+   
+  ([ 1 ])
+  (with a; [ 1 ])
+  ([
+    1
+    2
+    3
+  ])
+  (with a; [
+    1
+    2
+    3
+  ])
+  with foo; {
+  }
+
+  # No good, 3 opening line "syntactic elements"
+  with foo; with bar; {
+  }
+  
+  with foo;
+  with bar; {
+    
+  }
+
+  { lib }:
+  with lib;
+  {
+    foo = 10;
+  }
+  
+  let
+    x = 10;
+  in
+  with lib;
+  {
+    foo = 10;
+  }
+  
+  let
+    maintainers = with lib; {
+      foo = 10;
+    }
+    
+    maintainers = function
+      foo
+      bar;
+      
+    function
+      foo
+      bar
+
+    [
+      foo
+      bar
+    ]
+
+    # Want to be able to know what's going on without horizonal scanning/scrolling
+    # Need to distuingish between function application and lists
+    
+    Either absorbable functions, but no absorbable lists:
+      foo = function
+        foo
+        bar;
+        
+    Or absorbable lists and no absorbable functions:
+    
+      foo = [
+        foo
+        bar
+      ]
+        
+
+  in
+  x
+  ```
+- ✅ `//`, `++`
+  ```
+  foo // {
+    
+  }
+  
+  foo // bar // {
+    
+  }
+  
+  {
+    
+  } // foo
+  
+  bar // {
+    
+  } // foo
+  ```
+- ❌ `.` (`or`), `?`
+- ✅ `==`, `!=`, `<`, `<=`, `>`, `>=`
+  ```nix
+  {
+    foo =
+      {
+        # foo
+      } == foo;
+  }
+  ```
+  
+  `==` it's not obvious what the result is from the first line
+- ❌ `+` (string)
+- ❌ `*`, `/`, `+` (number), `-` (unary/binary)
+  ```nix
+  (
+    let
+    in
+    foo
+  )
+  + 10
+  ```
+- ✅ `!`
+  ```
+  {
+    foo = !(
+      # fo
+      true
+      # fo
+      && false
+      # fo
+      || false
+    );
+  }
+  ```
+- ❌ `&&`, `||`, `->`
+  ```
+  {
+    foo =
+      bar
+      && (
+        # ...
+      )
+      && baz;
+  }
+  ```
+- ✅ parenthesis
+  ```
+  (
+    # foo
+  )
+  ```
+- (ignore) comment
+  ```
+  # foo
+  10
+
+  # foo
+  foo = 10;
+  ```
+
+```
+foo = (a: with a; [
+  1
+  2
+]);
+
+foo = [
+  1
+  2
+]
+
+foo = a b [
+  1
+  2
+] // b;
+
+foo = a b (
+  1
+  2
+);
+  
+foo = 
+  a b [
+    1
+    2
+  ]
+  // b;
+
+foo = with a; [
+  1
+  2
+] ++ with b; [
+  3
+  4
+]
+```
+
+
+
+x = foo: arg: {
+  foo = 10;
+  bar = 10;
+};
+
+y =
+  with foo;
+  with arg;
+  {
+    foo = 10;
+    bar = 10;
+  };
+
+with foo;
+{
+  foo = 10;
+  bar = 10;
+}
+
+
+isAbsorbable :: Term -> Bool
+isAbsorbable (String (Ann _ parts@(_:_:_) _))
+    = not $ isSimpleString parts
+-- Non-empty sets and lists
+isAbsorbable (Set _ _ (Items (_:_)) _)                                   = True
+isAbsorbable (List _ (Items (_:_)) _)                                    = True
+isAbsorbable (Parenthesized (Ann [] _ Nothing) (Term t) _)               = isAbsorbable t
+isAbsorbable _                                                           = False
+
+## Initial standard Nix format
 
 - Line breaks may be added or removed, but empty lines must not be created. Single empty lines must be preserved, and consecutive empty lines must be turned into a single empty line.
   This allows the formatter to expand or compact multi-line expressions, while still allowing grouping of code.
@@ -1036,7 +1433,110 @@ else
 
 ### Bindings
 
-Let bindings and attribute sets share the same syntax for their items, which is discussed here together.
+Let bindings, attribute sets and default function arguments share the same syntax for their items, which is discussed here together.
+
+Within bindings, if the first and last line are not indented, the absorbed style is used, otherwise newline and indent
+
+```
+with { };
+{
+
+  # Should this style not also be used in top-level?
+
+  # Bindings get formatted just like top-level, but indentation
+
+
+  a1 = {
+    inherit bar;
+    inherit baz;
+  };
+
+{
+  inherit bar;
+  inherit baz;
+}
+
+  a2 = [
+    bar
+    baz
+  ];
+
+  a3 = ''
+    inherit bar;
+    inherit baz;
+  '';
+
+  a4 = (
+    let
+      bar = 10;
+    in
+    foo
+  );
+
+x:
+with foo;
+[
+  bar
+  baz
+]
+
+  a =
+    x:
+    with foo;
+    [
+      bar
+      baz
+    ];
+
+  b2 = fun {
+    inherit bar;
+    inherit baz;
+  };
+
+  b3 = fun: {
+    inherit bar;
+    inherit baz;
+  };
+
+  foo // {
+    inherit bar;
+    inherit baz;
+  };
+
+  b5 = foo ++ [
+    bar
+    baz
+  ];
+
+  b6 =
+    foo
+    // bar {
+      inherit bar;
+      inherit baz;
+    };
+
+  f2 = {
+    inherit bar;
+    inherit baz;
+  } // foo;
+
+  g2 = [
+    bar
+    baz
+  ] ++ foo;
+
+  g3 = foo bar ++ [
+    bar
+    baz
+  ];
+
+  g4 = [
+    bar
+    baz
+  ] ++ foo bar;
+}
+```
+
 
 Bindings have the most special cases to accommodate for many common Nixpkgs idioms.
 Generally, the following styles exist, which are used depending on the kind and size of the value:
